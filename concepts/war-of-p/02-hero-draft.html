@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>War of P — Selección de héroes</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { background: radial-gradient(ellipse at 50% 30%, #1d2a46 0%, #0b0f17 70%); }
+  body::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(216,180,106,0.03) 0 2px, transparent 2px 60px); }
+  header { position: absolute; top: 0; left: 0; right: 0; height: 120px; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  header .phase { font-size: 15px; letter-spacing: 0.3em; color: var(--gold); font-weight: 700; }
+  header .who { font-size: 34px; font-weight: 800; margin-top: 4px; }
+  header .timer { position: absolute; top: 26px; left: 50%; transform: translateX(-50%); }
+  .timerbar { position: absolute; top: 108px; left: 560px; right: 560px; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; }
+  .timerbar i { display: block; height: 100%; width: 62%; background: linear-gradient(90deg, var(--gold), var(--gold-hi)); border-radius: 2px; box-shadow: 0 0 12px var(--gold); }
+  .sec { position: absolute; top: 34px; font-size: 44px; font-weight: 800; color: var(--gold-hi); font-variant-numeric: tabular-nums; }
+
+  .bans { position: absolute; top: 40px; display: flex; gap: 8px; }
+  .bans.l { left: 40px; } .bans.r { right: 40px; }
+  .ban { width: 46px; height: 46px; border-radius: 8px; position: relative; display: grid; place-items: center; font-weight: 800; font-size: 14px; filter: grayscale(0.85) brightness(0.7); border: 1px solid rgba(255,255,255,0.15); }
+  .ban::after { content: ""; position: absolute; inset: 0; background: linear-gradient(45deg, transparent 46%, #ff4d5e 46% 54%, transparent 54%); }
+  .ban.empty { background: rgba(255,255,255,0.04); filter: none; border-style: dashed; }
+  .ban.empty::after { display: none; }
+  .bans .lbl { align-self: center; font-size: 11px; color: var(--muted); letter-spacing: .15em; margin: 0 6px; }
+
+  .side { position: absolute; top: 140px; width: 360px; display: flex; flex-direction: column; gap: 10px; }
+  .side.l { left: 40px; } .side.r { right: 40px; }
+  .slot { height: 140px; border-radius: 12px; position: relative; overflow: hidden; display: flex; align-items: flex-end; padding: 14px 16px; border: 1px solid rgba(255,255,255,0.08); }
+  .slot .art { position: absolute; inset: 0; }
+  .slot .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,12,20,0.9) 0%, rgba(8,12,20,0.2) 70%); }
+  .side.r .slot .art::after { background: linear-gradient(270deg, rgba(8,12,20,0.9) 0%, rgba(8,12,20,0.2) 70%); }
+  .side.r .slot { justify-content: flex-end; text-align: right; }
+  .slot .t { position: relative; z-index: 1; }
+  .slot .hn { font-size: 24px; font-weight: 800; }
+  .slot .pn { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .slot .role { position: absolute; top: 12px; z-index: 1; font-size: 11px; letter-spacing: .14em; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: rgba(0,0,0,0.5); }
+  .side.l .slot .role { left: 14px; } .side.r .slot .role { right: 14px; }
+  .slot.active { border: 2px solid var(--gold-hi); box-shadow: 0 0 24px rgba(243,217,153,0.45), inset 0 0 30px rgba(243,217,153,0.15); }
+  .slot.active .hn { color: var(--gold-hi); }
+  .slot.pending .art { filter: grayscale(1) brightness(0.35); }
+  .slot .sig { position: absolute; z-index: 1; font-size: 64px; opacity: 0.9; top: 18px; }
+  .side.l .slot .sig { right: 26px; } .side.r .slot .sig { left: 26px; }
+
+  .center { position: absolute; top: 140px; left: 430px; right: 430px; bottom: 30px; padding: 20px; display: flex; flex-direction: column; }
+  .filters { display: flex; gap: 8px; align-items: center; }
+  .chip { padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.12); color: var(--muted); }
+  .chip.on { background: var(--gold); color: #1a1408; border-color: var(--gold); }
+  .search { margin-left: auto; width: 240px; padding: 9px 14px; border-radius: 8px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.1); color: var(--muted); font-size: 13px; }
+  .heroes { margin-top: 18px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 12px; }
+  .h { aspect-ratio: 1; border-radius: 10px; position: relative; overflow: hidden; display: flex; align-items: flex-end; justify-content: center; border: 1px solid rgba(255,255,255,0.1); }
+  .h .g { position: absolute; top: 18%; left: 0; right: 0; text-align: center; font-size: 38px; }
+  .h .n { position: relative; width: 100%; text-align: center; font-size: 12px; font-weight: 700; padding: 4px 0; background: linear-gradient(0deg, rgba(0,0,0,0.85), transparent); }
+  .h.taken { filter: grayscale(1) brightness(0.4); }
+  .h.banned { filter: grayscale(1) brightness(0.3); }
+  .h.banned::after { content: "BANEADO"; position: absolute; top: 40%; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 800; color: var(--enemy); letter-spacing: .1em; }
+  .h.hover { border: 2px solid var(--gold-hi); box-shadow: 0 0 18px rgba(243,217,153,0.6); transform: translateY(-3px); }
+  .h .wr { position: absolute; top: 4px; right: 5px; font-size: 10px; font-weight: 700; color: #b9f5c9; }
+  .h .new { position: absolute; top: 4px; left: 5px; font-size: 9px; font-weight: 800; background: var(--enemy); padding: 1px 4px; border-radius: 3px; }
+
+  .detail { margin-top: auto; display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; padding: 18px; border-radius: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--line); }
+  .detail h2 { font-size: 30px; font-weight: 800; }
+  .detail .sub { color: var(--gold); font-size: 13px; letter-spacing: .14em; font-weight: 700; text-transform: uppercase; }
+  .detail p { color: var(--muted); font-size: 14px; line-height: 1.5; margin-top: 8px; }
+  .meters { display: grid; grid-template-columns: 90px 1fr; gap: 8px 10px; margin-top: 12px; font-size: 12px; color: var(--muted); align-items: center; }
+  .meters .bar { height: 6px; }
+  .kit { display: flex; gap: 10px; }
+  .kit .k { width: 64px; height: 64px; border-radius: 9px; display: grid; place-items: center; font-size: 26px; position: relative; }
+  .kit .k b { position: absolute; bottom: -18px; font-size: 11px; color: var(--muted); }
+  .skins { display: flex; gap: 8px; margin-top: 30px; }
+  .skins div { width: 70px; height: 44px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); }
+  .skins div.on { border: 2px solid var(--gold-hi); }
+  .lock { margin-top: 18px; display: flex; gap: 10px; }
+  .btn { padding: 14px 26px; border-radius: 8px; font-weight: 800; letter-spacing: .14em; font-size: 15px; text-transform: uppercase; }
+  .btn.primary { flex: 1; text-align: center; background: linear-gradient(180deg, #f3d999, #c4964a); color: #1a1408; box-shadow: 0 0 24px rgba(243,217,153,.45), inset 0 1px 0 rgba(255,255,255,.6); }
+  .btn.ghost { border: 1px solid var(--line); color: var(--gold-hi); }
+  .runes { display: flex; gap: 6px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .runes span { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #1b2438; border: 1px solid var(--line); }
+
+  .comp { position: absolute; bottom: 30px; width: 360px; padding: 14px 16px; font-size: 13px; }
+  .comp.l { left: 40px; }
+  .comp .row { display: flex; justify-content: space-between; margin-top: 6px; color: var(--muted); }
+  .comp .row b { color: var(--text); }
+  .comp .row .bar { width: 160px; height: 6px; align-self: center; }
+</style>
+</head>
+<body>
+
+<div class="bans l"><span class="lbl">BANS</span>
+  <div class="ban" style="background:linear-gradient(135deg,#7a2a5a,#2a0f20)">ZE</div>
+  <div class="ban" style="background:linear-gradient(135deg,#2a5a7a,#0f202a)">QU</div>
+  <div class="ban" style="background:linear-gradient(135deg,#5a7a2a,#202a0f)">FY</div>
+  <div class="ban empty"></div><div class="ban empty"></div>
+</div>
+<div class="bans r">
+  <div class="ban" style="background:linear-gradient(135deg,#7a5a2a,#2a200f)">GA</div>
+  <div class="ban" style="background:linear-gradient(135deg,#4a2a7a,#1a0f2a)">YS</div>
+  <div class="ban" style="background:linear-gradient(135deg,#2a7a6a,#0f2a26)">MO</div>
+  <div class="ban empty"></div><div class="ban empty"></div><span class="lbl">BANS</span>
+</div>
+
+<header>
+  <div class="phase">FASE DE SELECCIÓN · TURNO 3 DE 10</div>
+  <div class="who display">Tu equipo elige</div>
+  <div class="timerbar"><i></i></div>
+</header>
+<div class="sec" style="left:540px">0:24</div>
+<div class="sec" style="right:540px;color:var(--muted);font-size:20px;top:48px">Clasificatoria · Oro II</div>
+
+<div class="side l">
+  <div class="slot"><div class="art" style="background:radial-gradient(circle at 75% 40%,#c48a3b,#3a220a 70%)"></div><span class="role">⛰ TOP</span><span class="sig">🪓</span><div class="t"><div class="hn">Brakk</div><div class="pn">IronWolf_93 · Confirmado</div></div></div>
+  <div class="slot"><div class="art" style="background:radial-gradient(circle at 75% 40%,#3f9c5a,#0d2a18 70%)"></div><span class="role">🌿 JUNGLA</span><span class="sig">🐺</span><div class="t"><div class="hn">Ondra</div><div class="pn">Selvática · Confirmado</div></div></div>
+  <div class="slot active"><div class="art" style="background:radial-gradient(circle at 75% 40%,#7cc8ff,#0f2c52 70%)"></div><span class="role" style="color:var(--gold-hi)">✦ MID · TÚ</span><span class="sig">❄</span><div class="t"><div class="hn">Lyra</div><div class="pn">Aldair · Eligiendo…</div></div></div>
+  <div class="slot pending"><div class="art" style="background:radial-gradient(circle at 75% 40%,#6a3fa3,#1a0f30 70%)"></div><span class="role">🏹 TIRADOR</span><div class="t"><div class="hn" style="color:var(--muted)">Esperando</div><div class="pn">Kzr · Preferencia: Mirelle</div></div></div>
+  <div class="slot pending"><div class="art" style="background:radial-gradient(circle at 75% 40%,#2f9c7a,#0d2a22 70%)"></div><span class="role">✚ APOYO</span><div class="t"><div class="hn" style="color:var(--muted)">Esperando</div><div class="pn">Luz_del_sur · Preferencia: Solenne</div></div></div>
+</div>
+
+<div class="side r">
+  <div class="slot"><div class="art" style="background:radial-gradient(circle at 25% 40%,#a33a4a,#2a0a12 70%)"></div><span class="role">⛰ TOP</span><span class="sig">⚔</span><div class="t"><div class="hn">Vharok</div><div class="pn">Invocador rival</div></div></div>
+  <div class="slot"><div class="art" style="background:radial-gradient(circle at 25% 40%,#5a3aa3,#140a2a 70%)"></div><span class="role">✦ MID</span><span class="sig">🌙</span><div class="t"><div class="hn">Nyra</div><div class="pn">Invocador rival</div></div></div>
+  <div class="slot pending"><div class="art" style="background:#222"></div><span class="role">🌿 JUNGLA</span><div class="t"><div class="hn" style="color:var(--muted)">—</div><div class="pn">Invocador rival</div></div></div>
+  <div class="slot pending"><div class="art" style="background:#222"></div><span class="role">🏹 TIRADOR</span><div class="t"><div class="hn" style="color:var(--muted)">—</div><div class="pn">Invocador rival</div></div></div>
+  <div class="slot pending"><div class="art" style="background:#222"></div><span class="role">✚ APOYO</span><div class="t"><div class="hn" style="color:var(--muted)">—</div><div class="pn">Invocador rival</div></div></div>
+</div>
+
+<div class="center panel">
+  <div class="filters">
+    <span class="chip">Todos</span><span class="chip">⛰ Top</span><span class="chip">🌿 Jungla</span><span class="chip on">✦ Mid</span><span class="chip">🏹 Tirador</span><span class="chip">✚ Apoyo</span><span class="chip">★ Favoritos</span>
+    <div class="search">🔍 Buscar héroe…</div>
+  </div>
+  <div class="heroes">
+    <div class="h hover" style="background:radial-gradient(circle at 50% 35%,#7cc8ff,#0f2c52)"><span class="wr">54%</span><div class="g">❄</div><div class="n">Lyra</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ff9a5a,#4a1a0a)"><span class="wr">51%</span><div class="g">🔥</div><div class="n">Azhar</div></div>
+    <div class="h taken" style="background:radial-gradient(circle at 50% 35%,#b48cff,#21144a)"><div class="g">🌙</div><div class="n">Nyra</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ffe27a,#4a3a0a)"><span class="new">NUEVO</span><div class="g">⚡</div><div class="n">Tesk</div></div>
+    <div class="h banned" style="background:radial-gradient(circle at 50% 35%,#ff7ac0,#4a0a2a)"><div class="g">🎭</div><div class="n">Zerith</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#7affc4,#0a4a2e)"><span class="wr">49%</span><div class="g">🍃</div><div class="n">Feyra</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#c4c4ff,#1a1a4a)"><span class="wr">52%</span><div class="g">🔮</div><div class="n">Rhiv</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ffb37a,#4a2a0a)"><span class="wr">50%</span><div class="g">☀</div><div class="n">Solari</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#9ad0ff,#0a2a4a)"><span class="wr">48%</span><div class="g">🌊</div><div class="n">Maré</div></div>
+    <div class="h banned" style="background:radial-gradient(circle at 50% 35%,#7ab4ff,#0a1a4a)"><div class="g">🌀</div><div class="n">Quell</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ff7a7a,#4a0a0a)"><span class="wr">53%</span><div class="g">🩸</div><div class="n">Morvan</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#e0e0e0,#2a2a2a)"><span class="wr">50%</span><div class="g">💀</div><div class="n">Ossia</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ffd27a,#4a300a)"><span class="wr">47%</span><div class="g">🪶</div><div class="n">Kazuo</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#a8ff7a,#1e4a0a)"><span class="wr">51%</span><div class="g">🐍</div><div class="n">Viss</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#7affff,#0a4a4a)"><span class="wr">50%</span><div class="g">💎</div><div class="n">Crys</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#d07aff,#2e0a4a)"><span class="wr">49%</span><div class="g">🕸</div><div class="n">Arak</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ffa07a,#4a1e0a)"><span class="wr">52%</span><div class="g">🦂</div><div class="n">Skarn</div></div>
+    <div class="h taken" style="background:radial-gradient(circle at 50% 35%,#7aa0ff,#0a1e4a)"><span class="wr">50%</span><div class="g">🛡</div><div class="n">Toron</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ff7ae0,#4a0a3e)"><div class="g">🦋</div><div class="n">Yseul</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#c0ff7a,#2e4a0a)"><span class="wr">48%</span><div class="g">🌵</div><div class="n">Garrik</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ffd07a,#4a360a)"><span class="wr">51%</span><div class="g">🦁</div><div class="n">Leónidas</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#7ae0ff,#0a3a4a)"><span class="wr">49%</span><div class="g">⚓</div><div class="n">Nauta</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#ff8a7a,#4a120a)"><span class="wr">53%</span><div class="g">🐦‍🔥</div><div class="n">Ignis</div></div>
+    <div class="h" style="background:radial-gradient(circle at 50% 35%,#b0b0ff,#1e1e4a)"><span class="wr">50%</span><div class="g">🗡</div><div class="n">Sombra</div></div>
+  </div>
+
+  <div class="detail">
+    <div>
+      <div class="sub">Maga de Escarcha · Control</div>
+      <h2 class="display">Lyra, la Voz del Invierno</h2>
+      <p>Controla zonas con muros de hielo y castiga a quien quede atrapado. Ideal para peleas en equipo y para asegurar objetivos del río.</p>
+      <div class="meters">
+        <span>Daño</span><div class="bar"><i style="width:75%;background:var(--enemy)"></i></div>
+        <span>Control</span><div class="bar"><i style="width:90%;background:var(--mana)"></i></div>
+        <span>Movilidad</span><div class="bar"><i style="width:35%;background:var(--energy)"></i></div>
+        <span>Dificultad</span><div class="bar"><i style="width:60%;background:#b48cff"></i></div>
+      </div>
+    </div>
+    <div>
+      <div class="kit">
+        <div class="k gold-frame" style="background:#1b2c48">❄<b>Pasiva</b></div>
+        <div class="k gold-frame" style="background:#1f4f8a">➶<b>Q</b></div>
+        <div class="k gold-frame" style="background:#2a6fb6">🧊<b>W</b></div>
+        <div class="k gold-frame" style="background:#3a8ac2">◎<b>E</b></div>
+        <div class="k gold-frame" style="background:radial-gradient(#b7e9ff,#2a6fb6)">✷<b>R</b></div>
+      </div>
+      <div class="skins"><div class="on" style="background:linear-gradient(135deg,#7cc8ff,#0f2c52)"></div><div style="background:linear-gradient(135deg,#ffd27a,#5a3a0a)"></div><div style="background:linear-gradient(135deg,#ff7ac0,#3a0a2a)"></div><div style="background:linear-gradient(135deg,#9a9a9a,#1a1a1a)"></div></div>
+      <div class="runes">Página: <b style="color:var(--text)">Mago de control</b><span>✦</span><span>❄</span><span>⏱</span><span style="margin-left:8px">⚡</span><span>🔥</span></div>
+      <div class="lock"><div class="btn ghost">Ver kit</div><div class="btn primary">Confirmar Lyra</div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

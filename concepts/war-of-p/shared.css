@@ -1,0 +1,46 @@
+:root {
+  --bg: #0b0f17;
+  --panel: rgba(12, 17, 28, 0.86);
+  --panel-solid: #121a2a;
+  --line: rgba(196, 164, 102, 0.45);
+  --gold: #d8b46a;
+  --gold-hi: #f3d999;
+  --text: #e9eef7;
+  --muted: #8d9ab3;
+  --ally: #3fa9ff;
+  --enemy: #ff4d5e;
+  --hp: #3ccf6e;
+  --mana: #3c8cff;
+  --energy: #f5c542;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", "DejaVu Sans", sans-serif;
+  position: relative;
+}
+.display { font-family: "Inter Display", "Inter", sans-serif; letter-spacing: 0.02em; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(6px);
+}
+.gold-frame {
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 0 1px #000, 0 0 14px rgba(216, 180, 106, 0.35);
+}
+.portrait {
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.bar { height: 10px; border-radius: 3px; background: rgba(0, 0, 0, 0.6); overflow: hidden; border: 1px solid rgba(0, 0, 0, 0.8); }
+.bar > i { display: block; height: 100%; }
+.tag { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }

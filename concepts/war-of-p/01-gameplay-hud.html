@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>War of P — HUD en partida</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  #world { position: absolute; inset: 0; }
+  /* ---------- Top scoreboard ---------- */
+  .score {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: stretch; gap: 0;
+    border-top: none; border-radius: 0 0 14px 14px; padding: 6px 10px 8px;
+  }
+  .score .team { display: flex; gap: 6px; align-items: center; padding: 0 12px; }
+  .score .mini { width: 38px; height: 38px; font-size: 13px; position: relative; }
+  .score .mini.dead { filter: grayscale(1) brightness(0.5); }
+  .score .mini.dead::after { content: attr(data-t); position: absolute; color: #fff; font-size: 13px; font-weight: 800; }
+  .score .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 18px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .score .kills { font-size: 30px; font-weight: 800; display: flex; gap: 16px; line-height: 1; }
+  .score .kills .a { color: var(--ally); } .score .kills .e { color: var(--enemy); }
+  .score .clock { font-size: 15px; color: var(--gold-hi); font-weight: 700; margin-top: 4px; letter-spacing: 0.08em; }
+  .score .sub { font-size: 11px; color: var(--muted); display: flex; gap: 14px; margin-top: 2px; }
+
+  /* ---------- Objective timers ---------- */
+  .objectives { position: absolute; top: 14px; left: 16px; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; width: 238px; }
+  .obj { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .obj .ico { width: 30px; height: 30px; border-radius: 6px; display: grid; place-items: center; font-size: 16px; }
+  .obj b { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Kill feed ---------- */
+  .feed { position: absolute; top: 14px; right: 16px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .kf { display: flex; align-items: center; gap: 8px; padding: 5px 10px; font-size: 13px; font-weight: 600; }
+  .kf .p { width: 28px; height: 28px; font-size: 11px; }
+  .kf.ally { border-left: 3px solid var(--ally); } .kf.enemy { border-left: 3px solid var(--enemy); }
+  .kf .sword { color: var(--gold); font-size: 15px; }
+  .kf .banner { color: var(--gold-hi); font-size: 11px; letter-spacing: 0.1em; }
+
+  /* ---------- Ping/alert ---------- */
+  .alert { position: absolute; top: 112px; left: 50%; transform: translateX(-50%); text-align: center; }
+  .alert .big { font-size: 34px; font-weight: 800; color: var(--gold-hi); text-shadow: 0 0 18px rgba(243, 217, 153, 0.6), 0 3px 0 #000; letter-spacing: 0.06em; }
+  .alert .small { font-size: 14px; color: var(--text); opacity: 0.85; margin-top: 2px; }
+
+  /* ---------- Bottom-left: hero panel ---------- */
+  .hero { position: absolute; bottom: 16px; left: 16px; display: flex; gap: 14px; padding: 12px 16px 12px 12px; align-items: center; }
+  .hero .face { width: 104px; height: 104px; font-size: 34px; position: relative; }
+  .hero .lvl { position: absolute; bottom: -6px; right: -4px; width: 34px; height: 34px; border-radius: 50%; background: #0c1220; border: 2px solid var(--gold); display: grid; place-items: center; font-size: 15px; font-weight: 800; }
+  .hero .xp { position: absolute; inset: -7px; border-radius: 50%; background: conic-gradient(#b48cff 0 68%, rgba(255,255,255,0.08) 68% 100%); z-index: -1; }
+  .stats { display: grid; grid-template-columns: repeat(2, 76px); gap: 4px 10px; font-size: 13px; }
+  .stats div { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  .stats b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Bottom-center: ability bar ---------- */
+  .abil { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 12px 16px 12px; width: 640px; }
+  .abil .slots { display: flex; gap: 10px; justify-content: center; align-items: flex-end; }
+  .sk { width: 74px; height: 74px; border-radius: 10px; position: relative; overflow: hidden; display: grid; place-items: center; }
+  .sk.ult { width: 86px; height: 86px; }
+  .sk.small { width: 54px; height: 54px; }
+  .sk svg { width: 62%; height: 62%; }
+  .sk .key { position: absolute; top: 3px; left: 5px; font-size: 12px; font-weight: 800; text-shadow: 0 1px 2px #000; }
+  .sk .pips { position: absolute; bottom: 4px; left: 0; right: 0; display: flex; gap: 3px; justify-content: center; }
+  .sk .pips i { width: 8px; height: 3px; background: rgba(255,255,255,0.18); border-radius: 1px; }
+  .sk .pips i.on { background: var(--gold-hi); }
+  .sk .cd { position: absolute; inset: 0; background: conic-gradient(transparent 0 var(--p), rgba(0,0,0,0.68) var(--p) 100%); display: grid; place-items: center; font-size: 24px; font-weight: 800; }
+  .sk .cost { position: absolute; bottom: 9px; right: 5px; font-size: 10px; color: #9cc2ff; font-weight: 700; }
+  .sep { width: 1px; height: 54px; background: var(--line); margin: 0 4px; align-self: center; }
+  .res { margin-top: 12px; display: flex; flex-direction: column; gap: 5px; }
+  .res .bar { height: 20px; position: relative; border-radius: 4px; }
+  .res .bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000; }
+  .res .bar.m { height: 12px; }
+  .res .bar.m span { font-size: 10px; }
+  .hpbar i { background: linear-gradient(180deg, #5fe08c, #23a552); background-image: linear-gradient(180deg, #5fe08c, #23a552); }
+  .ticks { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 26px, rgba(0,0,0,0.45) 26px 27px); }
+
+  /* ---------- Items ---------- */
+  .items { position: absolute; bottom: 16px; left: 1296px; padding: 12px; display: flex; gap: 12px; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(3, 48px); gap: 6px; }
+  .it { width: 48px; height: 48px; border-radius: 7px; border: 1px solid rgba(216,180,106,0.5); display: grid; place-items: center; font-size: 22px; position: relative; }
+  .it.empty { background: rgba(255,255,255,0.03); border-style: dashed; border-color: rgba(255,255,255,0.15); }
+  .it small { position: absolute; bottom: 1px; right: 3px; font-size: 10px; font-weight: 700; }
+  .gold { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .gold .coin { font-size: 22px; font-weight: 800; color: var(--gold-hi); }
+  .gold .shop { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--gold); color: var(--gold-hi); letter-spacing: 0.1em; font-weight: 700; }
+  .gold .rec { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.3; }
+
+  /* ---------- Minimap ---------- */
+  .mm { position: absolute; bottom: 16px; right: 16px; width: 300px; height: 300px; padding: 6px; }
+  .mm svg { width: 100%; height: 100%; border-radius: 6px; }
+
+  /* ---------- Teammates ---------- */
+  .mates { position: absolute; left: 16px; top: 300px; display: flex; flex-direction: column; gap: 10px; }
+  .mate { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; width: 210px; }
+  .mate .p { width: 44px; height: 44px; font-size: 15px; position: relative; }
+  .mate .p em { position: absolute; bottom: -4px; right: -4px; font-style: normal; font-size: 10px; background: #0c1220; border: 1px solid var(--gold); border-radius: 50%; width: 18px; height: 18px; display: grid; place-items: center; font-weight: 800; }
+  .mate .info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .mate .name { font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; }
+  .mate .name span { color: var(--muted); font-weight: 500; }
+  .mate .bar { height: 6px; }
+  .mate .ultdot { width: 10px; height: 10px; border-radius: 50%; background: var(--gold-hi); box-shadow: 0 0 8px var(--gold-hi); }
+  .mate .ultdot.off { background: #333; box-shadow: none; }
+
+  /* ---------- Chat ---------- */
+  .chat { position: absolute; left: 16px; bottom: 176px; width: 380px; font-size: 13px; line-height: 1.55; text-shadow: 0 1px 2px #000; }
+  .chat .a { color: var(--ally); font-weight: 700; }
+  .chat .sys { color: var(--gold-hi); }
+  .chat .ping { color: #ffd166; }
+
+  .label { position: absolute; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px #000; }
+</style>
+</head>
+<body>
+
+<!-- ================= WORLD ================= -->
+<svg id="world" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="4" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.10  0 0 0 0 0.24  0 0 0 0 0.12  0 0 0 0.85 0"/>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <filter id="fine"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.12"/></feComponentTransfer><feBlend in="SourceGraphic" mode="overlay"/></filter>
+    <radialGradient id="vign" cx="50%" cy="48%" r="70%"><stop offset="55%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.7"/></radialGradient>
+    <linearGradient id="grass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b6b35"/><stop offset="1" stop-color="#2a5230"/></linearGradient>
+    <linearGradient id="river" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1e6f8a"/><stop offset="0.5" stop-color="#2d9bb5"/><stop offset="1" stop-color="#1e6f8a"/></linearGradient>
+    <pattern id="stone" width="44" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(-28)">
+      <rect width="44" height="30" fill="#8b7a5e"/>
+      <rect x="1" y="1" width="20" height="13" rx="3" fill="#a08d6b"/><rect x="23" y="1" width="20" height="13" rx="3" fill="#978462"/>
+      <rect x="-10" y="16" width="20" height="13" rx="3" fill="#9a8766"/><rect x="12" y="16" width="20" height="13" rx="3" fill="#a69371"/><rect x="34" y="16" width="20" height="13" rx="3" fill="#94815f"/>
+    </pattern>
+    <radialGradient id="tree" cx="40%" cy="35%"><stop offset="0" stop-color="#4f8f3e"/><stop offset="0.7" stop-color="#2b5a2a"/><stop offset="1" stop-color="#173a1d"/></radialGradient>
+    <radialGradient id="shadow"><stop offset="0" stop-color="#000" stop-opacity="0.5"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowB"><stop offset="0" stop-color="#7cc8ff" stop-opacity="0.9"/><stop offset="1" stop-color="#3fa9ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowR"><stop offset="0" stop-color="#ff8a95" stop-opacity="0.9"/><stop offset="1" stop-color="#ff4d5e" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowG"><stop offset="0" stop-color="#fff2c4" stop-opacity="1"/><stop offset="0.4" stop-color="#f3d999" stop-opacity="0.7"/><stop offset="1" stop-color="#d8b46a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="beam" x1="0" x2="1"><stop offset="0" stop-color="#9fe3ff" stop-opacity="0"/><stop offset="0.6" stop-color="#9fe3ff" stop-opacity="0.85"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+    <g id="treeC"><ellipse cx="6" cy="14" rx="34" ry="14" fill="url(#shadow)"/><circle r="30" fill="url(#tree)"/><circle cx="-12" cy="-10" r="14" fill="#5a9c45" opacity="0.5"/></g>
+    <g id="minB"><ellipse cy="10" rx="12" ry="5" fill="#000" opacity="0.35"/><path d="M-9 8 L0 -12 L9 8 Z" fill="#3f8fe0" stroke="#bfe3ff" stroke-width="1.5"/><rect x="-11" y="-22" width="22" height="3" fill="#111"/><rect x="-11" y="-22" width="16" height="3" fill="#3fa9ff"/></g>
+    <g id="minR"><ellipse cy="10" rx="12" ry="5" fill="#000" opacity="0.35"/><path d="M-9 8 L0 -12 L9 8 Z" fill="#d6404f" stroke="#ffc2c8" stroke-width="1.5"/><rect x="-11" y="-22" width="22" height="3" fill="#111"/><rect x="-11" y="-22" width="12" height="3" fill="#ff4d5e"/></g>
+  </defs>
+
+  <!-- ground -->
+  <rect width="1920" height="1080" fill="url(#grass)" filter="url(#grain)"/>
+  <!-- jungle darker patches -->
+  <ellipse cx="300" cy="200" rx="420" ry="260" fill="#1f4426" opacity="0.6"/>
+  <ellipse cx="1650" cy="900" rx="440" ry="260" fill="#1f4426" opacity="0.6"/>
+  <!-- river -->
+  <path d="M520 -60 C 600 200, 700 300, 820 520 S 1050 900, 1180 1140 L 1600 1140 C 1450 900, 1350 700, 1240 470 S 980 120, 900 -60 Z" fill="url(#river)" opacity="0.92"/>
+  <path d="M700 -60 C 780 200, 880 320, 1000 520 S 1240 880, 1380 1140" stroke="#bdf0ff" stroke-width="3" fill="none" opacity="0.35" stroke-dasharray="40 26"/>
+  <path d="M600 -60 C 680 200, 790 330, 900 540 S 1130 900, 1270 1140" stroke="#bdf0ff" stroke-width="2" fill="none" opacity="0.22" stroke-dasharray="30 40"/>
+  <path d="M520 -60 C 600 200, 700 300, 820 520 S 1050 900, 1180 1140" stroke="#7a6a48" stroke-width="10" fill="none" opacity="0.5"/>
+  <path d="M900 -60 C 980 120, 1240 470, 1240 470 S 1450 900, 1600 1140" stroke="#7a6a48" stroke-width="10" fill="none" opacity="0.5"/>
+  <!-- mid lane (stone road) crossing the river diagonally -->
+  <path d="M-100 1180 L 2020 -100 L 2140 40 L 20 1320 Z" fill="url(#stone)" opacity="0.95"/>
+  <path d="M-100 1180 L 2020 -100" stroke="#5c4f3a" stroke-width="6" opacity="0.6"/>
+  <path d="M20 1320 L 2140 40" stroke="#5c4f3a" stroke-width="6" opacity="0.6"/>
+  <!-- bridge planks where river crosses -->
+  <g opacity="0.95">
+    <path d="M760 560 L 1260 300 L 1350 430 L 850 690 Z" fill="#6e4b2c"/>
+    <g stroke="#4a311c" stroke-width="3">
+      <line x1="800" y1="540" x2="890" y2="670"/><line x1="860" y1="508" x2="950" y2="638"/><line x1="920" y1="477" x2="1010" y2="607"/><line x1="980" y1="446" x2="1070" y2="576"/><line x1="1040" y1="415" x2="1130" y2="545"/><line x1="1100" y1="384" x2="1190" y2="514"/><line x1="1160" y1="353" x2="1250" y2="483"/><line x1="1220" y1="322" x2="1310" y2="452"/>
+    </g>
+    <path d="M760 560 L 1260 300" stroke="#c9a46a" stroke-width="5"/><path d="M850 690 L 1350 430" stroke="#c9a46a" stroke-width="5"/>
+  </g>
+  <!-- trees / walls -->
+  <g>
+    <use href="#treeC" x="120" y="120"/><use href="#treeC" x="190" y="90"/><use href="#treeC" x="250" y="150"/><use href="#treeC" x="80" y="230"/><use href="#treeC" x="420" y="90"/><use href="#treeC" x="480" y="140"/><use href="#treeC" x="560" y="70"/>
+    <use href="#treeC" x="60" y="420"/><use href="#treeC" x="130" y="470"/><use href="#treeC" x="340" y="330"/><use href="#treeC" x="660" y="120"/><use href="#treeC" x="720" y="60"/>
+    <use href="#treeC" x="1360" y="980"/><use href="#treeC" x="1440" y="930"/><use href="#treeC" x="1520" y="1000"/><use href="#treeC" x="1620" y="950"/><use href="#treeC" x="1700" y="1010"/><use href="#treeC" x="1820" y="880"/><use href="#treeC" x="1870" y="960"/>
+    <use href="#treeC" x="1560" y="760"/><use href="#treeC" x="1640" y="720"/><use href="#treeC" x="1760" y="700"/><use href="#treeC" x="1850" y="640"/>
+  </g>
+  <!-- brush (hide spots) -->
+  <g opacity="0.9">
+    <path d="M520 380 q20 -30 40 0 q20 -30 40 0 q20 -30 40 0 q20 -30 40 0 l0 40 l-160 0 z" fill="#4f9a3a"/>
+    <path d="M1380 640 q20 -30 40 0 q20 -30 40 0 q20 -30 40 0 l0 40 l-120 0 z" fill="#4f9a3a"/>
+  </g>
+  <!-- ENEMY TOWER (upper right) -->
+  <g transform="translate(1460,250)">
+    <ellipse cx="0" cy="90" rx="300" ry="150" fill="none" stroke="#ff4d5e" stroke-width="2.5" stroke-dasharray="10 10" opacity="0.55"/>
+    <ellipse cx="0" cy="40" rx="62" ry="24" fill="#000" opacity="0.4"/>
+    <path d="M-40 40 L-30 -90 L30 -90 L40 40 Z" fill="#4b4f5c"/><path d="M-30 -90 L30 -90 L20 -110 L-20 -110 Z" fill="#6d7280"/>
+    <path d="M0 40 L0 -90" stroke="#3a3d47" stroke-width="2"/>
+    <circle cy="-130" r="20" fill="url(#glowR)"/><circle cy="-130" r="9" fill="#ffb3ba"/>
+    <rect x="-46" y="-170" width="92" height="9" rx="2" fill="#111"/><rect x="-45" y="-169" width="56" height="7" fill="#ff4d5e"/>
+  </g>
+  <!-- minions clashing on bridge -->
+  <g>
+    <use href="#minB" x="900" y="560"/><use href="#minB" x="940" y="590"/><use href="#minB" x="870" y="610"/><use href="#minB" x="960" y="540"/><use href="#minB" x="915" y="640"/>
+    <use href="#minR" x="1060" y="470"/><use href="#minR" x="1100" y="500"/><use href="#minR" x="1030" y="510"/><use href="#minR" x="1120" y="450"/>
+  </g>
+  <!-- ally ward -->
+  <g transform="translate(600,470)"><circle r="90" fill="#3fa9ff" opacity="0.07"/><circle r="90" fill="none" stroke="#3fa9ff" stroke-opacity="0.35" stroke-dasharray="4 6"/><path d="M0 -18 L8 0 L0 6 L-8 0 Z" fill="#9fd6ff"/></g>
+  <!-- ability: ground AOE telegraph from enemy (ult incoming) -->
+  <g transform="translate(830,700)">
+    <ellipse rx="150" ry="78" fill="#ff4d5e" opacity="0.14"/>
+    <ellipse rx="150" ry="78" fill="none" stroke="#ff4d5e" stroke-width="3" opacity="0.8"/>
+    <ellipse rx="95" ry="49" fill="none" stroke="#ff4d5e" stroke-width="2" opacity="0.5" stroke-dasharray="8 8"/>
+  </g>
+  <!-- player skillshot range indicator + beam -->
+  <g>
+    <path d="M760 640 L 1150 420" stroke="#9fe3ff" stroke-width="54" stroke-linecap="round" opacity="0.12"/>
+    <path d="M760 640 L 1150 420" stroke="#9fe3ff" stroke-width="2" opacity="0.6" stroke-dasharray="6 8"/>
+    <path d="M770 634 L 1040 482" stroke="url(#beam)" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="1040" cy="482" r="28" fill="url(#glowB)"/>
+    <circle cx="1040" cy="482" r="8" fill="#fff"/>
+  </g>
+  <!-- ENEMY HERO -->
+  <g transform="translate(1180,420)">
+    <ellipse cy="24" rx="40" ry="14" fill="none" stroke="#ff4d5e" stroke-width="3"/>
+    <ellipse cy="24" rx="30" ry="10" fill="#000" opacity="0.35"/>
+    <path d="M-16 20 L-20 -10 Q0 -48 20 -10 L16 20 Z" fill="#7a2232"/>
+    <circle cy="-26" r="14" fill="#e3b08d"/><path d="M-16 -30 Q0 -54 16 -30 L12 -40 Q0 -50 -12 -40 Z" fill="#2a0f16"/>
+    <path d="M18 -6 L46 -36" stroke="#cfd6e3" stroke-width="5" stroke-linecap="round"/>
+    <circle cy="-6" r="56" fill="url(#glowR)" opacity="0.25"/>
+  </g>
+  <!-- PLAYER HERO -->
+  <g transform="translate(760,650)">
+    <circle r="110" fill="url(#glowB)" opacity="0.18"/>
+    <ellipse cy="26" rx="46" ry="16" fill="none" stroke="#3ccf6e" stroke-width="3.5"/>
+    <ellipse cy="26" rx="34" ry="11" fill="#000" opacity="0.35"/>
+    <path d="M-18 22 L-24 -12 Q0 -54 24 -12 L18 22 Z" fill="#1f4f8a"/>
+    <path d="M-24 -12 Q-40 10 -30 30 L-18 22 Z" fill="#15385f"/>
+    <circle cy="-30" r="15" fill="#f0c9a8"/><path d="M-17 -32 Q-10 -56 14 -46 Q20 -36 17 -28 Q4 -42 -17 -32 Z" fill="#e8eef8"/>
+    <path d="M20 -10 L48 -24" stroke="#9fe3ff" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="-25" r="7" fill="#dff6ff"/>
+  </g>
+  <!-- particles -->
+  <g fill="#cfefff" opacity="0.8"><circle cx="990" cy="500" r="2"/><circle cx="1010" cy="470" r="1.5"/><circle cx="1060" cy="460" r="2.5"/><circle cx="1075" cy="505" r="1.5"/><circle cx="930" cy="530" r="1.5"/></g>
+  <!-- floating combat text -->
+  <text x="1240" y="330" fill="#ffd166" font-family="Inter" font-weight="800" font-size="30" stroke="#000" stroke-width="1.2">-486</text>
+  <text x="1250" y="356" fill="#ff8aa0" font-family="Inter" font-weight="800" font-size="20" stroke="#000" stroke-width="1">CRÍTICO</text>
+  <rect width="1920" height="1080" fill="url(#vign)"/>
+  <rect width="1920" height="1080" fill="#000" filter="url(#fine)" opacity="0.35"/>
+</svg>
+
+<!-- in-world bars and labels -->
+<div class="label" style="left:712px;top:568px;width:100px;text-align:center">
+  <div style="color:#fff;font-size:12px;margin-bottom:3px">Lyra · Tú</div>
+  <div class="bar" style="height:9px"><i style="width:72%;background:#3ccf6e"></i></div>
+  <div class="bar" style="height:5px;margin-top:2px"><i style="width:55%;background:#3c8cff"></i></div>
+</div>
+<div class="label" style="left:1130px;top:340px;width:100px;text-align:center">
+  <div style="color:#ff9aa5;font-size:12px;margin-bottom:3px">Vharok · 9</div>
+  <div class="bar" style="height:9px"><i style="width:34%;background:#ff4d5e"></i></div>
+</div>
+
+<!-- ================= HUD ================= -->
+<div class="score panel">
+  <div class="team">
+    <div class="mini portrait gold-frame" style="background:linear-gradient(135deg,#3b82c4,#1b3d6e)">LY</div>
+    <div class="mini portrait gold-frame" style="background:linear-gradient(135deg,#8a5a2b,#3e2410)">BR</div>
+    <div class="mini portrait gold-frame dead" data-t="12" style="background:linear-gradient(135deg,#6a3fa3,#2e1650)"></div>
+    <div class="mini portrait gold-frame" style="background:linear-gradient(135deg,#2f9c7a,#11473a)">SE</div>
+    <div class="mini portrait gold-frame" style="background:linear-gradient(135deg,#c48a3b,#5a3810)">OR</div>
+  </div>
+  <div class="mid">
+    <div class="kills display"><span class="a">14</span><span style="color:var(--muted);font-size:18px;align-self:center">VS</span><span class="e">11</span></div>
+    <div class="clock">18:42</div>
+    <div class="sub"><span>🏰 2 · 1</span><span>💰 +2.4k</span><span>🐉 1 · 0</span></div>
+  </div>
+  <div class="team">
+    <div class="mini portrait" style="border:2px solid var(--enemy);background:linear-gradient(135deg,#a33a4a,#4a1420)">VH</div>
+    <div class="mini portrait dead" data-t="7" style="border:2px solid var(--enemy);background:linear-gradient(135deg,#3a6aa3,#142f4a)"></div>
+    <div class="mini portrait" style="border:2px solid var(--enemy);background:linear-gradient(135deg,#a37d3a,#4a3414)">KA</div>
+    <div class="mini portrait" style="border:2px solid var(--enemy);background:linear-gradient(135deg,#5a3aa3,#21144a)">NY</div>
+    <div class="mini portrait" style="border:2px solid var(--enemy);background:linear-gradient(135deg,#3aa38f,#144a40)">TE</div>
+  </div>
+</div>
+
+<div class="objectives panel">
+  <div class="tag">Objetivos</div>
+  <div class="obj"><div class="ico" style="background:#3b1d4f">🐉</div>Dragón de Tormenta<b style="color:var(--gold-hi)">0:48</b></div>
+  <div class="obj"><div class="ico" style="background:#4f1d1d">👁</div>Coloso del Abismo<b>Vivo</b></div>
+  <div class="obj"><div class="ico" style="background:#1d3b4f">✦</div>Runas del río<b>1:12</b></div>
+</div>
+
+<div class="feed">
+  <div class="kf panel ally"><div class="p portrait" style="background:linear-gradient(135deg,#3b82c4,#1b3d6e)">LY</div><span class="sword">⚔</span><div class="p portrait" style="background:linear-gradient(135deg,#3a6aa3,#142f4a)">AS</div><span class="banner">DOBLE</span></div>
+  <div class="kf panel enemy"><div class="p portrait" style="background:linear-gradient(135deg,#a33a4a,#4a1420)">VH</div><span class="sword">⚔</span><div class="p portrait" style="background:linear-gradient(135deg,#6a3fa3,#2e1650)">MI</div></div>
+  <div class="kf panel ally"><div class="p portrait" style="background:linear-gradient(135deg,#8a5a2b,#3e2410)">BR</div><span style="font-size:12px">destruyó</span><span>🏰 Torre exterior · Mid</span></div>
+</div>
+
+<div class="alert">
+  <div class="big display">¡DOBLE ELIMINACIÓN!</div>
+  <div class="small">Lyra está en racha · +450 de oro</div>
+</div>
+
+<div class="mates">
+  <div class="mate panel"><div class="p portrait gold-frame" style="background:linear-gradient(135deg,#8a5a2b,#3e2410)">BR<em>13</em></div><div class="info"><div class="name">Brakk <span>Top</span></div><div class="bar"><i style="width:88%;background:var(--hp)"></i></div><div class="bar" style="height:4px"><i style="width:60%;background:var(--energy)"></i></div></div><div class="ultdot"></div></div>
+  <div class="mate panel" style="opacity:.6"><div class="p portrait gold-frame" style="background:linear-gradient(135deg,#6a3fa3,#2e1650);filter:grayscale(1)">MI<em>11</em></div><div class="info"><div class="name">Mirelle <span>⟳ 12s</span></div><div class="bar"><i style="width:0%"></i></div></div><div class="ultdot off"></div></div>
+  <div class="mate panel"><div class="p portrait gold-frame" style="background:linear-gradient(135deg,#2f9c7a,#11473a)">SE<em>12</em></div><div class="info"><div class="name">Solenne <span>Apoyo</span></div><div class="bar"><i style="width:46%;background:#e8c23a"></i></div><div class="bar" style="height:4px"><i style="width:80%;background:var(--mana)"></i></div></div><div class="ultdot"></div></div>
+  <div class="mate panel"><div class="p portrait gold-frame" style="background:linear-gradient(135deg,#c48a3b,#5a3810)">OR<em>12</em></div><div class="info"><div class="name">Ondra <span>Jungla</span></div><div class="bar"><i style="width:94%;background:var(--hp)"></i></div><div class="bar" style="height:4px"><i style="width:35%;background:var(--mana)"></i></div></div><div class="ultdot off"></div></div>
+</div>
+
+<div class="chat">
+  <div><span class="sys">[Sistema]</span> Dragón de Tormenta aparece en 0:48</div>
+  <div><span class="a">Ondra:</span> voy mid después del campamento</div>
+  <div><span class="ping">⚑ Solenne:</span> Peligro — Kazuo sin visión (bot)</div>
+  <div><span class="a">Brakk:</span> tengo TP listo 👍</div>
+</div>
+
+<div class="hero panel">
+  <div class="face portrait gold-frame" style="background:radial-gradient(circle at 40% 35%,#6fb4ff,#1b3d6e 70%)"><div class="xp"></div>LY<div class="lvl">12</div></div>
+  <div>
+    <div class="display" style="font-size:20px;font-weight:800">Lyra</div>
+    <div class="tag" style="margin-bottom:8px">Maga de Escarcha · Mid</div>
+    <div class="stats">
+      <div>⚔ <b>142</b></div><div>✦ <b>386</b></div>
+      <div>🛡 <b>68</b></div><div>◈ <b>54</b></div>
+      <div>⚡ <b>0.82</b></div><div>➶ <b>355</b></div>
+    </div>
+    <div style="font-size:12px;margin-top:8px;color:var(--muted)">KDA <b style="color:var(--text)">7 / 1 / 6</b> · CS <b style="color:var(--text)">164</b></div>
+  </div>
+</div>
+
+<div class="abil panel">
+  <div class="slots">
+    <div class="sk gold-frame" style="background:linear-gradient(135deg,#2a6fb6,#0f2c52)"><span class="key">Q</span>
+      <svg viewBox="0 0 24 24"><path d="M3 21 L21 3 M15 3 h6 v6" stroke="#dff6ff" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+      <span class="cost">60</span><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div></div>
+    <div class="sk gold-frame" style="background:linear-gradient(135deg,#3a8ac2,#123a5a)"><span class="key">W</span>
+      <svg viewBox="0 0 24 24"><path d="M12 2 L12 22 M2 12 L22 12 M5 5 L19 19 M19 5 L5 19" stroke="#dff6ff" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="cd" style="--p:38%">4</div><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div>
+    <div class="sk gold-frame" style="background:linear-gradient(135deg,#4aa0b8,#123f4a)"><span class="key">E</span>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="#dff6ff" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="3" fill="#dff6ff"/></svg>
+      <span class="cost">80</span><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div></div>
+    <div class="sk ult gold-frame" style="background:radial-gradient(circle,#b7e9ff,#2a6fb6 55%,#0b1f3a);box-shadow:0 0 0 1px #000,0 0 22px rgba(159,227,255,.8)"><span class="key">R</span>
+      <svg viewBox="0 0 24 24"><path d="M12 1 L14.5 9.5 L23 12 L14.5 14.5 L12 23 L9.5 14.5 L1 12 L9.5 9.5 Z" fill="#fff"/></svg>
+      <span class="cost">100</span><div class="pips"><i class="on"></i><i class="on"></i><i></i></div></div>
+    <div class="sep"></div>
+    <div class="sk small gold-frame" style="background:linear-gradient(135deg,#d9a53a,#5a3c0e)"><span class="key">D</span><svg viewBox="0 0 24 24"><path d="M13 2 L4 14 h7 l-1 8 l9 -12 h-7 z" fill="#fff6d6"/></svg></div>
+    <div class="sk small gold-frame" style="background:linear-gradient(135deg,#c24a3a,#4a160e)"><span class="key">F</span><svg viewBox="0 0 24 24"><path d="M12 3 C8 9 6 11 6 15 a6 6 0 0 0 12 0 c0 -4 -2 -6 -6 -12z" fill="#ffd2c6"/></svg><div class="cd" style="--p:72%;font-size:16px">41</div></div>
+  </div>
+  <div class="res">
+    <div class="bar hpbar"><i style="width:72%"></i><div class="ticks"></div><span>1 482 / 2 060 <em style="font-style:normal;color:#b9f5c9;margin-left:6px">+12.4</em></span></div>
+    <div class="bar m"><i style="width:55%;background:linear-gradient(180deg,#68a8ff,#2a6ad6)"></i><span>812 / 1 470</span></div>
+  </div>
+</div>
+
+<div class="items panel">
+  <div class="grid">
+    <div class="it" style="background:linear-gradient(135deg,#2b4d7a,#101c30)">🔮</div>
+    <div class="it" style="background:linear-gradient(135deg,#4a2b7a,#1a1030)">📘</div>
+    <div class="it" style="background:linear-gradient(135deg,#7a5a2b,#30220f)">👢</div>
+    <div class="it" style="background:linear-gradient(135deg,#2b7a6a,#0f302a)">💠<small>2</small></div>
+    <div class="it empty"></div>
+    <div class="it empty"></div>
+  </div>
+  <div class="gold">
+    <div class="it" style="background:#1b2438;width:40px;height:40px;font-size:18px">👁</div>
+    <div class="coin">💰 1 245</div>
+    <div class="shop">TIENDA (P)</div>
+    <div class="rec">Sugerido:<br><b style="color:var(--gold-hi)">Cetro Glacial</b> 1 100</div>
+  </div>
+</div>
+
+<div class="mm panel">
+  <svg viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#22402a"/>
+    <path d="M14 4 C 30 25, 42 38, 52 46 S 76 70, 96 86 L 88 96 C 70 80, 56 64, 46 55 S 24 32, 4 14 Z" fill="#2d8fb0" opacity="0.8"/>
+    <g stroke="#b9a37a" stroke-width="3.2" fill="none" opacity="0.9">
+      <path d="M8 92 L 8 8 L 92 8"/><path d="M8 92 L 92 92 L 92 8"/><path d="M8 92 L 92 8"/>
+    </g>
+    <circle cx="8" cy="92" r="6" fill="#3fa9ff"/><circle cx="92" cy="8" r="6" fill="#ff4d5e"/>
+    <g fill="#3fa9ff"><rect x="6" y="60" width="4" height="4"/><rect x="6" y="30" width="4" height="4"/><rect x="28" y="70" width="4" height="4"/><rect x="40" y="90" width="4" height="4"/><rect x="70" y="90" width="4" height="4"/></g>
+    <g fill="#ff4d5e"><rect x="30" y="6" width="4" height="4"/><rect x="62" y="6" width="4" height="4"/><rect x="66" y="31" width="4" height="4"/><rect x="90" y="40" width="4" height="4"/><rect x="90" y="70" width="4" height="4"/></g>
+    <g fill="#ff4d5e" opacity="0.35"><rect x="50" y="6" width="4" height="4"/></g>
+    <rect x="34" y="40" width="22" height="14" fill="none" stroke="#fff" stroke-width="0.8"/>
+    <circle cx="44" cy="56" r="3.2" fill="#3fa9ff" stroke="#fff" stroke-width="1"/>
+    <circle cx="14" cy="22" r="2.6" fill="#3fa9ff" stroke="#000" stroke-width=".5"/>
+    <circle cx="70" cy="86" r="2.6" fill="#3fa9ff" stroke="#000" stroke-width=".5"/>
+    <circle cx="74" cy="90" r="2.6" fill="#3fa9ff" stroke="#000" stroke-width=".5"/>
+    <circle cx="30" cy="40" r="2.6" fill="#3fa9ff" stroke="#000" stroke-width=".5"/>
+    <circle cx="51" cy="47" r="2.6" fill="#ff4d5e" stroke="#000" stroke-width=".5"/>
+    <circle cx="68" cy="18" r="2.6" fill="#ff4d5e" stroke="#000" stroke-width=".5"/>
+    <circle cx="86" cy="80" r="2.6" fill="#ff4d5e" stroke="#000" stroke-width=".5"/>
+    <text x="64" y="62" font-size="6">🐉</text><text x="28" y="34" font-size="6">👁</text>
+    <path d="M78 84 l3 -6 l3 6 z" fill="#ffd166"/>
+  </svg>
+</div>
+
+</body>
+</html>
